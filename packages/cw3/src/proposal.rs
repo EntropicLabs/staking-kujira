@@ -154,7 +154,7 @@ impl Votes {
         }
     }
 
-    pub fn remove_vote(&mut self, vote: Vote, weight: u64){
+    pub fn remove_vote(&mut self, vote: Vote, weight: u64) {
         match vote {
             Vote::Yes => self.yes -= weight,
             Vote::Abstain => self.abstain -= weight,

@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{CosmosMsg, Empty, Addr};
+use cosmwasm_std::{Addr, CosmosMsg, Empty};
 use cw3::{UncheckedDepositInfo, Vote};
 use cw4::MemberChangedHookMsg;
 use cw_utils::{Duration, Expiration, Threshold};
@@ -78,10 +78,7 @@ pub enum QueryMsg {
     },
 
     #[returns(StakedAtPropHeightResponse)]
-    StakedAtPropHeight {
-        proposal_id: u64,
-        address: Addr,
-    },
+    StakedAtPropHeight { proposal_id: u64, address: Addr },
     /// Gets the current configuration.
     #[returns(crate::state::Config)]
     Config {},
@@ -91,5 +88,5 @@ pub enum QueryMsg {
 pub struct StakedAtPropHeightResponse {
     pub proposal_id: u64,
     pub address: Addr,
-    pub staked: bool
+    pub staked: bool,
 }

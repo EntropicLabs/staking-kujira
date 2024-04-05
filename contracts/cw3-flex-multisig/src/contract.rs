@@ -3,8 +3,8 @@ use std::cmp::Ordering;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Addr, Binary, BlockInfo, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Order,
-    Response, StdResult,
+    to_json_binary, Addr, Binary, BlockInfo, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo,
+    Order, Response, StdResult,
 };
 
 use cw2::set_contract_version;
@@ -19,7 +19,7 @@ use cw_utils::{maybe_addr, Expiration, ThresholdResponse};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, StakedAtPropHeightResponse};
-use crate::state::{Config, CONFIG, next_id, BALLOTS, PROPOSALS};
+use crate::state::{next_id, Config, BALLOTS, CONFIG, PROPOSALS};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw3-flex-multisig";
@@ -314,8 +314,12 @@ pub fn execute_membership_hook(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Threshold {} => to_json_binary(&query_threshold(deps)?),
-        QueryMsg::Proposal { proposal_id } => to_json_binary(&query_proposal(deps, env, proposal_id)?),
-        QueryMsg::Vote { proposal_id, voter } => to_json_binary(&query_vote(deps, proposal_id, voter)?),
+        QueryMsg::Proposal { proposal_id } => {
+            to_json_binary(&query_proposal(deps, env, proposal_id)?)
+        }
+        QueryMsg::Vote { proposal_id, voter } => {
+            to_json_binary(&query_vote(deps, proposal_id, voter)?)
+        }
         QueryMsg::ListProposals { start_after, limit } => {
             to_json_binary(&list_proposals(deps, env, start_after, limit)?)
         }
