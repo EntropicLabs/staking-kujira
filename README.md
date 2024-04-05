@@ -1,4 +1,4 @@
-# Staking Contract, for Kujira.
+# Staking Contracts, for Kujira.
 
 This repository is fork of [CosmWasm/cw-plus](https://github.com/CosmWasm/cw-plus), specifically integrating a small changeset to modify `cw3` and `cw4` contracts for use in Kujira.
 
