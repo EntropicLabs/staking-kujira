@@ -531,7 +531,7 @@ mod tests {
     use cw2::{query_contract_info, ContractVersion};
     use cw20::UncheckedDenom;
     use cw3::{DepositError, UncheckedDepositInfo};
-    use cw4::{Cw4ExecuteMsg, Member};
+    use external_cw4::{Cw4ExecuteMsg, Member};
     use cw4_group::helpers::Cw4GroupContract;
     use cw_multi_test::{
         next_block, App, AppBuilder, BankSudo, Contract, ContractWrapper, Executor, SudoMsg,

@@ -1,12 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    coins, from_json, to_json_binary, Addr, BankMsg, Binary, Deps, DepsMut, Empty, Env,
-    MessageInfo, Order, Response, StdResult, Storage, SubMsg, Uint128, WasmMsg,
+    coins, to_json_binary, Addr, BankMsg, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Order,
+    Response, StdResult, Storage, SubMsg, Uint128,
 };
 
 use cw2::set_contract_version;
-use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg, Denom};
+use cw20::{Balance, Denom};
 use cw4::{
     Member, MemberChangedHookMsg, MemberDiff, MemberListResponse, MemberResponse,
     TotalWeightResponse,
@@ -16,7 +16,7 @@ use cw_utils::{maybe_addr, NativeBalance};
 use kujira::CallbackData;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveMsg, StakedResponse};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, StakedResponse};
 use crate::state::{Config, ADMIN, CLAIMS, CONFIG, HOOKS, MEMBERS, STAKE, TOTAL};
 
 // version info for migration info
@@ -78,7 +78,6 @@ pub fn execute(
         ExecuteMsg::Bond {} => execute_bond(deps, env, Balance::from(info.funds), info.sender),
         ExecuteMsg::Unbond { tokens: amount } => execute_unbond(deps, env, info, amount),
         ExecuteMsg::Claim { callback } => execute_claim(deps, env, info, callback),
-        ExecuteMsg::Receive(msg) => execute_receive(deps, env, info, msg),
     }
 }
 
@@ -95,13 +94,7 @@ pub fn execute_bond(
     // but the compiler cannot see that (yet...)
     let amount = match (&cfg.denom, &amount) {
         (Denom::Native(want), Balance::Native(have)) => must_pay_funds(have, want),
-        (Denom::Cw20(want), Balance::Cw20(have)) => {
-            if want == have.address {
-                Ok(have.amount)
-            } else {
-                Err(ContractError::InvalidDenom(want.into()))
-            }
-        }
+        (Denom::Cw20(_), Balance::Cw20(_)) => unreachable!("CW20 not supported on Kujira"),
         _ => Err(ContractError::MixedNativeAndCw20(
             "Invalid address or denom".to_string(),
         )),
@@ -125,29 +118,6 @@ pub fn execute_bond(
         .add_attribute("action", "bond")
         .add_attribute("amount", amount)
         .add_attribute("sender", sender))
-}
-
-pub fn execute_receive(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    wrapper: Cw20ReceiveMsg,
-) -> Result<Response, ContractError> {
-    // info.sender is the address of the cw20 contract (that re-sent this message).
-    // wrapper.sender is the address of the user that requested the cw20 contract to send this.
-    // This cannot be fully trusted (the cw20 contract can fake it), so only use it for actions
-    // in the address's favor (like paying/bonding tokens, not withdrawls)
-    let msg: ReceiveMsg = from_json(&wrapper.msg)?;
-    let balance = Balance::Cw20(Cw20CoinVerified {
-        address: info.sender,
-        amount: wrapper.amount,
-    });
-    let api = deps.api;
-    match msg {
-        ReceiveMsg::Bond {} => {
-            execute_bond(deps, env, balance, api.addr_validate(&wrapper.sender)?)
-        }
-    }
 }
 
 pub fn execute_unbond(
@@ -272,19 +242,7 @@ pub fn execute_claim(
             let message = SubMsg::new(msg);
             (amount_str, message)
         }
-        Denom::Cw20(addr) => {
-            let amount_str = coin_to_string(release, addr.as_str());
-            let transfer = Cw20ExecuteMsg::Transfer {
-                recipient: info.sender.clone().into(),
-                amount: release,
-            };
-            let message = SubMsg::new(WasmMsg::Execute {
-                contract_addr: addr.into(),
-                msg: to_json_binary(&transfer)?,
-                funds: vec![],
-            });
-            (amount_str, message)
-        }
+        Denom::Cw20(_) => unreachable!("CW20 not supported on Kujira"),
     };
 
     Ok(Response::new()
@@ -371,9 +329,7 @@ fn list_members(
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{
-        coin, from_json, CosmosMsg, OverflowError, OverflowOperation, StdError, Storage,
-    };
+    use cosmwasm_std::{coin, from_json, OverflowError, OverflowOperation, StdError, Storage};
     use cw20::Denom;
     use cw4::{member_key, TOTAL_KEY};
     use cw_controllers::{AdminError, Claim, HookError};
@@ -391,7 +347,6 @@ mod tests {
     const TOKENS_PER_WEIGHT: Uint128 = Uint128::new(1_000);
     const MIN_BOND: Uint128 = Uint128::new(5_000);
     const UNBONDING_BLOCKS: u64 = 100;
-    const CW20_ADDRESS: &str = "wasm1234567890";
 
     fn default_instantiate(deps: DepsMut) {
         do_instantiate(
@@ -419,18 +374,6 @@ mod tests {
         instantiate(deps, mock_env(), info, msg).unwrap();
     }
 
-    fn cw20_instantiate(deps: DepsMut, unbonding_period: Duration) {
-        let msg = InstantiateMsg {
-            denom: Denom::Cw20(Addr::unchecked(CW20_ADDRESS)),
-            tokens_per_weight: TOKENS_PER_WEIGHT,
-            min_bond: MIN_BOND,
-            unbonding_period,
-            admin: Some(INIT_ADMIN.into()),
-        };
-        let info = mock_info("creator", &[]);
-        instantiate(deps, mock_env(), info, msg).unwrap();
-    }
-
     fn bond(mut deps: DepsMut, user1: u128, user2: u128, user3: u128, height_delta: u64) {
         let mut env = mock_env();
         env.block.height += height_delta;
@@ -439,23 +382,6 @@ mod tests {
             if *stake != 0 {
                 let msg = ExecuteMsg::Bond {};
                 let info = mock_info(addr, &coins(*stake, DENOM));
-                execute(deps.branch(), env.clone(), info, msg).unwrap();
-            }
-        }
-    }
-
-    fn bond_cw20(mut deps: DepsMut, user1: u128, user2: u128, user3: u128, height_delta: u64) {
-        let mut env = mock_env();
-        env.block.height += height_delta;
-
-        for (addr, stake) in &[(USER1, user1), (USER2, user2), (USER3, user3)] {
-            if *stake != 0 {
-                let msg = ExecuteMsg::Receive(Cw20ReceiveMsg {
-                    sender: addr.to_string(),
-                    amount: Uint128::new(*stake),
-                    msg: to_json_binary(&ReceiveMsg::Bond {}).unwrap(),
-                });
-                let info = mock_info(CW20_ADDRESS, &[]);
                 execute(deps.branch(), env.clone(), info, msg).unwrap();
             }
         }
@@ -618,81 +544,6 @@ mod tests {
                 5100
             )))
         );
-    }
-
-    #[test]
-    fn cw20_token_bond() {
-        let mut deps = mock_dependencies();
-        cw20_instantiate(deps.as_mut(), Duration::Height(2000));
-
-        // Assert original weights
-        assert_users(deps.as_ref(), None, None, None, None);
-
-        // ensure it rounds down, and respects cut-off
-        bond_cw20(deps.as_mut(), 12_000, 7_500, 4_000, 1);
-
-        // Assert updated weights
-        assert_stake(deps.as_ref(), 12_000, 7_500, 4_000);
-        assert_users(deps.as_ref(), Some(12), Some(7), None, None);
-    }
-
-    #[test]
-    fn cw20_token_claim() {
-        let unbonding_period: u64 = 50;
-        let unbond_height: u64 = 10;
-
-        let mut deps = mock_dependencies();
-        let unbonding = Duration::Height(unbonding_period);
-        cw20_instantiate(deps.as_mut(), unbonding);
-
-        // bond some tokens
-        bond_cw20(deps.as_mut(), 20_000, 13_500, 500, 1);
-
-        // unbond part
-        unbond(deps.as_mut(), 7_900, 4_600, 0, unbond_height);
-
-        // Assert updated weights
-        assert_stake(deps.as_ref(), 12_100, 8_900, 500);
-        assert_users(deps.as_ref(), Some(12), Some(8), None, None);
-
-        // with proper claims
-        let mut env = mock_env();
-        env.block.height += unbond_height;
-        let expires = unbonding.after(&env.block);
-        assert_eq!(
-            get_claims(deps.as_ref(), &Addr::unchecked(USER1)),
-            vec![Claim::new(7_900, expires)]
-        );
-
-        // wait til they expire and get payout
-        env.block.height += unbonding_period;
-        let res = execute(
-            deps.as_mut(),
-            env,
-            mock_info(USER1, &[]),
-            ExecuteMsg::Claim { callback: None },
-        )
-        .unwrap();
-        assert_eq!(res.messages.len(), 1);
-        match &res.messages[0].msg {
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr,
-                msg,
-                funds,
-            }) => {
-                assert_eq!(contract_addr.as_str(), CW20_ADDRESS);
-                assert_eq!(funds.len(), 0);
-                let parsed: Cw20ExecuteMsg = from_json(msg).unwrap();
-                assert_eq!(
-                    parsed,
-                    Cw20ExecuteMsg::Transfer {
-                        recipient: USER1.into(),
-                        amount: Uint128::new(7_900)
-                    }
-                );
-            }
-            _ => panic!("Must initiate cw20 transfer"),
-        }
     }
 
     #[test]

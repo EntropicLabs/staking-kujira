@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
-use cw20::{Cw20ReceiveMsg, Denom};
+use cw20::Denom;
 pub use cw_controllers::ClaimsResponse;
 use cw_utils::Duration;
 use kujira::CallbackData;
@@ -41,9 +41,6 @@ pub enum ExecuteMsg {
     AddHook { addr: String },
     /// Remove a hook. Must be called by Admin
     RemoveHook { addr: String },
-
-    /// This accepts a properly-encoded ReceiveMsg from a cw20 contract
-    Receive(Cw20ReceiveMsg),
 }
 
 #[cw_serde]

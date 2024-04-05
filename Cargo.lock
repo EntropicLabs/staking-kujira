@@ -335,7 +335,8 @@ dependencies = [
  "cw2",
  "cw20",
  "cw3",
- "cw4",
+ "cw4 1.0.1",
+ "cw4 1.1.2",
  "cw4-group",
  "schemars",
  "serde",
@@ -354,8 +355,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw4"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24754ff6e45f2a1c60adc409d9b2eb87666012c44021329141ffaab3388fccd2"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "cw4-group"
-version = "1.0.1"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e24a22c3af54c52edf528673b420a67a1648be2c159b8ec778d2fbf543df24b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -363,7 +379,7 @@ dependencies = [
  "cw-storage-plus",
  "cw-utils",
  "cw2",
- "cw4",
+ "cw4 1.1.2",
  "schemars",
  "serde",
  "thiserror",
@@ -380,7 +396,7 @@ dependencies = [
  "cw-utils",
  "cw2",
  "cw20",
- "cw4",
+ "cw4 1.0.1",
  "kujira",
  "schemars",
  "serde",
