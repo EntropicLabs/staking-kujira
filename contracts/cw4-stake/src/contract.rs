@@ -94,10 +94,7 @@ pub fn execute_bond(
     // but the compiler cannot see that (yet...)
     let amount = match (&cfg.denom, &amount) {
         (Denom::Native(want), Balance::Native(have)) => must_pay_funds(have, want),
-        (Denom::Cw20(_), Balance::Cw20(_)) => unreachable!("CW20 not supported on Kujira"),
-        _ => Err(ContractError::MixedNativeAndCw20(
-            "Invalid address or denom".to_string(),
-        )),
+        _ => unreachable!("CW20 not supported on Kujira"),
     }?;
 
     // update the sender's stake

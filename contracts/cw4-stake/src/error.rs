@@ -29,9 +29,6 @@ pub enum ContractError {
     #[error("Must send valid address to stake")]
     InvalidDenom(String),
 
-    #[error("Missed address or denom")]
-    MixedNativeAndCw20(String),
-
     #[error("No funds sent")]
     NoFunds {},
 
